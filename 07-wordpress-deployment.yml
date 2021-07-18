@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment 
+metadata:
+  name: usermgmt-webapp-wordpress
+  labels:
+    app: usermgmt-webapp-wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: usermgmt-webapp-wordpress
+  template:  
+    metadata:
+      labels: 
+        app: usermgmt-webapp-wordpress
+    spec:
+      initContainers:
+        - name: init-db
+          image: busybox:1.31
+          command: ['sh', '-c', 'echo -e "Checking for the availability of MySQL Server deployment"; while ! nc -z mysql 3306; do sleep 1; printf "-"; done; echo -e "  >> MySQL DB Server has started";']      
+      containers:
+        - name: usermgmt-webapp-wordpress
+          image: wordpress:5-php7.1-apache
+          imagePullPolicy: Always
+          ports: 
+            - containerPort: 80           
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: "mysql"            
+            - name: DB_PORT
+              value: "3306"            
+            - name: WORDPRESS_DB_NAME
+              value: "wordpress"            
+            - name: WORDPRESS_DB_USER
+              value: "root"            
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom: 
+                secretKeyRef:
+                  name: mysql-db-password
+                  key: db-password    
+          volumeMounts:
+            - name: wordpress-data
+              mountPath: /var/www
+            # - name: apache-config
+            #   mountPath: /etc/apache2/sites-available/000-default.conf
+            #   subPath: apache.conf
+      volumes:
+        - name: wordpress-data
+          persistentVolumeClaim:
+            claimName: wordpress-volume
+        # - name: apache-config
+        #   configMap:
+        #     name: apache-config
+        #     items:
+        #       - key: apache.conf
+        #         path: apache.conf            
